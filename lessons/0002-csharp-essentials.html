@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>บทที่ 2 · C# ที่ต้องรู้เพื่ออ่านโค้ดตัวเอง</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main class="doc">
+
+<p class="eyebrow">บทที่ 2 จาก 6 · Controller-based vs Minimal API</p>
+<h1>C# ที่ต้องรู้ เพื่ออ่านโค้ดตัวเองออก</h1>
+<p>
+  คุณเขียน <code>TodoItemsController</code> ได้แล้ว — แต่ถ้าอ่านออกเสียงทีละบรรทัดไม่ได้
+  เวลาจะตัดสินใจเรื่อง Controller vs Minimal API ก็จะตัดสินใจแบบลอยๆ
+  บทนี้แกะ <strong>5 โครงสร้าง C#</strong> ที่ปรากฏในไฟล์คุณอยู่แล้ว
+  ให้ออกมาเป็นภาษาไทย — เสร็จแล้วคุณจะอ่านไฟล์ตัวเองได้ทุกบรรทัด
+</p>
+
+<div class="callout info">
+  <p><span class="label">เป้าหมายบทนี้</span></p>
+  <p>
+    เปิด <code>Controllers/TodoItemsController.cs</code> ค้างไว้ข้างๆ แล้วอ่านทีละบรรทัดไปด้วยกัน
+    จบบทนี้คุณจะแปลง signature ของเมธอดได้ทั้งบรรทัดเป็นภาษาไทย
+  </p>
+</div>
+
+<h2>1 · Generics — ปลอกที่ใส่ "ชนิดข้อมูล" เป็นพารามิเตอร์</h2>
+<p>
+  เจอในไฟล์คุณเต็มไปหมด: <code>DbSet&lt;TodoItem&gt;</code>, <code>List&lt;TodoItem&gt;</code>,
+  <code>Task&lt;ActionResult&lt;TodoItemDTO&gt;&gt;</code> — ทุกตัวใช้แนวคิดเดียวกัน
+</p>
+<pre><code><span class="cm">// จาก Data/TodoDb.cs — ปลอก DbSet ใส่ชนิด TodoItem เข้าไป</span>
+<span class="hl">public DbSet&lt;TodoItem&gt; TodoItems =&gt; Set&lt;TodoItem&gt;();</span>
+
+<span class="cm">// อ่านแบบนี้: " DbSet ที่เก็บ TodoItem " — พอใส่ชนิดเข้าไป compiler จะรู้ทันที</span>
+<span class="cm">// ว่าห้าม Add() สิ่งอื่นที่ไม่ใช่ TodoItem เข้าไป ← ตัวอย่างสิ่งที่ generics ป้องกัน</span></code></pre>
+<p>
+  <strong>ทำไมถึงสำคัญ:</strong> generics ทำให้ compiler รู้ "ชนิดที่แท้จริง" ไปตลอดสาย
+  ตั้งแต่ query จนถึง <code>Ok(result)</code> — ถ้าตอนไหนใส่ชนิดผิด มันจะขึ้นแดงตั้งแต่ตอนพิมพ์ ไม่ใช่ตอนรัน
+</p>
+
+<h2>2 · async / await / Task — ใบรับฝากผลลัพธ์</h2>
+<p>
+  ดู signature ของเมธอดใน controller คุณ — ทุกตัวยาวเหมือนกัน:
+</p>
+<pre><code><span class="hl">public async Task&lt;ActionResult&lt;TodoItemDTO&gt;&gt; GetTodoItem(int id)</span>
+{
+    <span class="hl">var todo = await _context.TodoItems.FindAsync(id);</span>
+    ...
+    return Ok(new TodoItemDTO(todo));
+}</code></pre>
+<table>
+  <tr><th>ชิ้นส่วน</th><th>อ่านว่า</th></tr>
+  <tr><td><code>async</code></td><td>"เมธอดนี้ทำงานแบบรอทีหลังได้" — เปิดให้ใช้ <code>await</code> ข้างใน</td></tr>
+  <tr><td><code>await</code></td><td>"รอตรงนี้ แต่ปล่อยเธรดไปทำอย่างอื่นก่อน" — ไม่บล็อกทั้งแอป</td></tr>
+  <tr><td><code>Task&lt;T&gt;</code></td><td>"ใบรับฝาก" ที่สัญญาว่าเดี๋ยวจะมีค่าชนิด T มาให้ทีหลัง</td></tr>
+</table>
+<div class="callout warn">
+  <p><strong>กฎเหล็ก 2 ข้อ:</strong></p>
+  <p>
+    ① ถ้ามี <code>await</code> ต้องมี <code>async</code> ในเมธอดนั้นเสมอ<br>
+    ② ถ้าลืม <code>await</code> เมธอดจะ "รีบคืนใบรับฝาก" แล้วไปทำอย่างอื่นต่อ
+    — ผลลัพธ์อาจยังไม่มาถึงตอนที่คุณใช้มัน เป็น bug คลาสสิกของมือใหม่
+  </p>
+</div>
+
+<h2>3 · Attributes <code>[...]</code> — ป้ายที่ framework เป็นคนอ่าน</h2>
+<pre><code><span class="hl">[ApiController]</span>                        <span class="cm">// ป้าย: "คลาสนี้เป็น API controller จัดการ model binding ให้หน่อย"</span>
+<span class="hl">[Route("api/[controller]")]</span>           <span class="cm">// ป้าย: "เส้นทางฐานของคลาสนี้คือ..." (บทที่ 1 เราเห็นแล้ว)</span>
+public class TodoItemsController : ControllerBase
+{
+    <span class="hl">[HttpGet("{id}")]</span>                  <span class="cm">// ป้าย: "เมธอดนี้รับ GET /api/todoitems/{id}"</span>
+    <span class="hl">[Required(ErrorMessage = "กรุณาระบุหัวข้องาน")]</span>  <span class="cm">// ป้าย validation (ใน DTO)</span>
+    ...
+}</code></pre>
+<p>
+  จุดสำคัญ: attributes <strong>ไม่ใช่คำสั่ง</strong> — มันคือ "โน้ตติดไว้" เฉยๆ
+  ต้องมีใครสักคนมาอ่าน ซึ่งคนที่อ่านคือ ASP.NET Core เอง
+  และแต่ละป้ายจะถูกอ่านใน <strong>คนละช่วงของ pipeline</strong> —
+  <code>[Route]</code> ถูกอ่านตอน routing (บทที่ 1) ส่วน <code>[Required]</code> ถูกอ่านตอน model binding
+  ซึ่ง Minimal API ไม่มีตัวนี้ให้ใช้เหมือนกัน — เรื่องนี้เจอกันเต็มๆ ในบทที่ 4
+</p>
+
+<h2>4 · Constructor + readonly — ประตูเดียวและข้อความกำกับ</h2>
+<pre><code><span class="hl">private readonly TodoDb _context;</span>          <span class="cm">// ① ข้อความกำกับ: "เปลี่ยนไม่ได้หลังสร้าง"</span>
+
+<span class="hl">public TodoItemsController(TodoDb context)</span>  <span class="cm">// ② ประตูเดียวที่ใช้สร้างคลาสนี้</span>
+{
+    _context = context;                      <span class="cm">// ③ DI เป็นคนยื่น context ใส่ประตูนี้ให้ (บทที่ 1)</span>
+}</code></pre>
+<ul>
+  <li><code>private readonly</code> — "ชนิดนี้ตั้งค่าครั้งเดียวตอนสร้าง ห้ามเปลี่ยนทีหลัง" ทำให้ _context ถูกแชร์ให้ทุกเมธอดในคลาสได้อย่างปลอดภัย</li>
+  <li>Constructor คือ "ประตูเดียว" — นี่แหละที่ DI ใช้ยัดของ (ต่อยอดจาก Aha! #2 ของบทที่ 1)</li>
+</ul>
+
+<h2>5 · เครื่องหมาย <code>?</code> หลังชนิด — บอกตรงๆ ว่า "ค่าอาจว่าง"</h2>
+<pre><code><span class="hl">public string? Title { get; set; }</span>       <span class="cm">// string ที่ยอมรับ null</span>
+<span class="hl">public DateTime? DueDate { get; set; }</span>    <span class="cm">// DateTime ที่ยอมรับ null</span></code></pre>
+<p>
+  โปรเจกต์คุณเปิด <code>&lt;Nullable&gt;enable&lt;/Nullable&gt;</code> ไว้ใน <code>.csproj</code>
+  แปลว่า compiler จะ <strong>เตือน</strong> คุณตอนใช้ค่าที่ "อาจเป็น null" ก่อนที่มันจะกลายเป็น
+  <code>NullReferenceException</code> ตอนรัน — เห็นได้จากโค้ดคุณเองที่คอยเช็ค
+  <code>if (todo == null)</code> ก่อนเสมอ นั่นคือระบบนี้ทำงานอยู่นั่นเอง
+</p>
+
+<h2>เล็กน้อยที่เหลือ (พอให้อ่านต่อได้)</h2>
+<table>
+  <tr><th>เห็นในโค้ด</th><th>อ่านว่า</th></tr>
+  <tr><td><code>var todos = ...</code></td><td>"ให้ compiler เดาชนิดจากค่าขวาให้" — ไม่ใช่ dynamic นะ ยัง type-safe เต็มร้อย</td></tr>
+  <tr><td><code>{ get; set; }</code></td><td>property — ช่องเก็บข้อมูลของคลาสที่อ่าน/เขียนได้</td></tr>
+  <tr><td><code>=&gt; Set&lt;TodoItem&gt;();</code></td><td>expression-bodied — เขียนเมธอดหนึ่งบรรทัดแบบกระชับ</td></tr>
+  <tr><td><code>new TodoItemDTO(todo)</code></td><td>เรียก constructor ของ DTO เพื่อแปลง entity เป็นรูปทรงที่จะส่งออก</td></tr>
+</table>
+
+<h2>ลองของจริง (5 นาที)</h2>
+<ol class="steps">
+  <li>เปิด <code>Controllers/TodoItemsController.cs</code></li>
+  <li>อ่านออกเสียง signature ของ <code>CreateTodoItem</code> เป็นภาษาไทยทั้งบรรทัด
+<pre><code>public async Task&lt;ActionResult&lt;TodoItemDTO&gt;&gt; CreateTodoItem(TodoItemDTO dto)</code></pre>
+    ต้องแปลได้ประมาณ: "เมธอดนี้ทำงานแบบรอทีหลัง คืนใบรับฝากที่มี ActionResult ครอบ TodoItemDTO รับ TodoItemDTO ชื่อ dto เข้ามา"</li>
+  <li>ชี้ทุก <code>?</code> ในไฟล์ แล้วถามตัวเอง "ทำไมบรรทัดนี้ต้องยอมให้เป็น null?"</li>
+  <li> Bonus: เปิด <code>Data/TodoDb.cs</code> แล้วอ่านบรรทัด <code>DbSet&lt;TodoItem&gt; TodoItems =&gt; Set&lt;TodoItem&gt;();</code> ออกเสียงให้ได้</li>
+</ol>
+
+<div class="quiz" data-best-key="lesson-2-quiz">
+  <p class="quiz-score"></p>
+
+  <div class="q">
+    <p class="prompt">1 · <code>Task&lt;ActionResult&lt;TodoItemDTO&gt;&gt;</code> ใน signature บอกอะไรเรา?</p>
+    <div class="opts">
+      <button class="opt">รับค่าชนิดข้อมูลภายนอกเข้าเป็นพารามิเตอร์เมธอด</button>
+      <button class="opt" data-correct>ส่งคืนผลลัพธ์แบบรอทีหลังพร้อมชนิดข้อมูลข้างใน</button>
+      <button class="opt">ทำงานทันทีและคืนค่าเป็นสถานะเลขรหัสกลับ</button>
+      <button class="opt">ตรวจชนิดข้อมูลก่อนส่งเข้าฐานข้อมูลเสมอ</button>
+    </div>
+    <p class="feedback" hidden>Task&lt;T&gt; คือใบรับฝากที่สัญญาว่าเดี๋ยวจะมีค่าชนิด T มาให้ทีหลัง ส่วน async บอกว่าเมธอดนี้ "รอทีหลังได้" และ ActionResult&lt;T&gt; คือผลลัพธ์ HTTP ที่ครอบข้อมูลชนิด T ไว้ข้างใน</p>
+  </div>
+
+  <div class="q">
+    <p class="prompt">2 · บรรทัด <code>private readonly TodoDb _context;</code> หมายความว่าอะไร?</p>
+    <div class="opts">
+      <button class="opt">ตัวแปรของคลาสชนิด TodoDb ชื่อ _context</button>
+      <button class="opt">ตัวแปรที่ใช้แชร์ร่วมกันทุกคลาสทั้งโปรเจกต์</button>
+      <button class="opt">ตัวแปรที่บันทึกค่าถาวรลงฐานข้อมูลเสมอ</button>
+      <button class="opt" data-correct>ตัวแปรของคลาสที่เปลี่ยนค่าไม่ได้หลังจากสร้าง</button>
+    </div>
+    <p class="feedback" hidden>readonly หมายความว่าตั้งค่าได้ครั้งเดียวตอนสร้าง instance เท่านั้น หลังจากนั้นเปลี่ยนไม่ได้ — ทำให้ _context ถูกแชร์ให้ทุกเมธอดในคลาสอย่างปลอดภัย (ยังไม่ใช่ static นะ ยังเป็นของคนละ instance ต่อ request)</p>
+  </div>
+
+  <div class="q">
+    <p class="prompt">3 · <code>[HttpGet("{id}")]</code> คืออะไรในมุมมองของ C#?</p>
+    <div class="opts">
+      <button class="opt" data-correct>ป้ายกำกับที่ framework อ่านเพื่อจับคู่เส้นทาง</button>
+      <button class="opt">คำสั่งยิง HTTP GET ไปที่ URL ระบุทันทีที่เรียก</button>
+      <button class="opt">การจองเมธอดนี้ไว้ใช้กับ GET request เท่านั้น</button>
+      <button class="opt">ตัวแปลง query string ให้เป็นพารามิเตอร์เมธอด</button>
+    </div>
+    <p class="feedback" hidden>attribute คือโน้ตที่ "เขียนทิ้งไว้" ไม่ใช่คำสั่ง — ASP.NET Core เป็นคนมาอ่าน [HttpGet("{id}")] ตอนขั้นตอน routing เพื่อจับคู่ GET /api/todoitems/{id} เข้ากับเมธอดนี้</p>
+  </div>
+
+  <div class="q">
+    <p class="prompt">4 · <code>List&lt;TodoItem&gt;</code> และ <code>DbSet&lt;TodoItem&gt;</code> ใช้แนวคิดอะไรร่วมกัน?</p>
+    <div class="opts">
+      <button class="opt">attributes — ติดป้ายกำกับชนิดข้อมูลให้ compiler</button>
+      <button class="opt">delegates — ส่งเมธอดไปทำงานที่คลาสอื่นต่อ</button>
+      <button class="opt" data-correct>generics — ใส่ชนิดข้อมูลเป็นพารามิเตอร์ของคลาส</button>
+      <button class="opt">interfaces — สัญญาที่คลาสต้อง implement ตาม</button>
+    </div>
+    <p class="feedback" hidden>List&lt;TodoItem&gt; และ DbSet&lt;TodoItem&gt; ล้วนเป็น generics คือคลาสที่รับ "ชนิดข้อมูล" เป็นพารามิเตอร์ ข้อดีคือ compiler รู้ชนิดข้อมูลไปตลอดสาย และป้องกันการใส่ของผิดชนิดตั้งแต่ตอนพิมพ์ ไม่ใช่ตอนรัน</p>
+  </div>
+
+  <div class="q">
+    <p class="prompt">5 · <code>public string? Title</code> — เครื่องหมาย <code>?</code> ทำให้เกิดอะไร?</p>
+    <div class="opts">
+      <button class="opt">ค่าเริ่มต้นของ property จะถูกตั้งเป็นค่าว่างให้</button>
+      <button class="opt" data-correct>compiler เตือนเมื่อใช้ค่าที่อาจเป็น null</button>
+      <button class="opt">property จะกลายเป็น nullable ทุก type ทันที</button>
+      <button class="opt">property จะถูกซ่อนจากผลลัพธ์ JSON เสมอ</button>
+    </div>
+    <p class="feedback" hidden>เครื่องหมาย ? ทำให้เป็น nullable reference type — compiler จะเตือนคุณตอนใช้ค่าที่ "อาจเป็น null" ก่อนที่มันจะกลายเป็น NullReferenceException ตอนรัน โค้ดคุณที่เช็ค if (x == null) ก่อนเสมอคือระบบนี้ทำงานอยู่</p>
+  </div>
+
+  <div class="q">
+    <p class="prompt">6 · ทำไมหน้า <code>ToListAsync()</code> ต้องมี <code>await</code> นำหน้า?</p>
+    <div class="opts">
+      <button class="opt">เพื่อบังคับให้ query ทำงานทันทีที่เรียกโดยไม่รอ</button>
+      <button class="opt">เพื่อให้ EF Core บันทึกการแก้ไขลงฐานข้อมูล</button>
+      <button class="opt">เพื่อล็อกตารางไม่ให้ request อื่นแก้ไขพร้อมกัน</button>
+      <button class="opt" data-correct>เพื่อรอผล query โดยปล่อยเธรดอื่นทำงานไปก่อน</button>
+    </div>
+    <p class="feedback" hidden>await คือ "รอตรงนี้ แต่ปล่อยเธรดไปทำอย่างอื่นก่อน" — query SQL อาจกินเวลา จึงไม่ควรบล็อกเธรดที่กำลังรับ request อยู่ และถ้าลืม await โค้ดจะรีบวิ่งต่อทั้งที่ผลยังไม่มาถึง ซึ่งเป็น bug คลาสสิกของมือใหม่</p>
+  </div>
+</div>
+
+<h2>สรุป</h2>
+<ul>
+  <li><strong>Generics</strong> <code>&lt;...&gt;</code> = ปลอกใส่ชนิด — compiler ตามชนิดได้ตลอดสาย</li>
+  <li><strong>async/await/Task</strong> = ใบรับฝากผลลัพธ์ + รอแบบไม่บล็อกเธรด (มี await ต้องมี async)</li>
+  <li><strong>Attributes</strong> = ป้ายโน้ตที่ framework เป็นคนอ่าน แต่ละป้ายถูกอ่านคนละช่วง pipeline</li>
+  <li><strong>readonly + constructor</strong> = ข้อความ "เปลี่ยนไม่ได้" + ประตูเดียวที่ DI ใช้ยัดของ</li>
+  <li><strong><code>?</code></strong> = บอก compiler ตรงๆ ว่าค่าอาจว่าง เพื่อให้เตือนก่อนพังตอนรัน</li>
+</ul>
+
+<h2>อ่านต่อ (แหล่งข้อมูลหลัก)</h2>
+<p>
+  <a href="https://learn.microsoft.com/en-us/dotnet/csharp/asynchronous-programming">
+  <strong>Asynchronous programming with async and await — Microsoft Learn (C#)</strong></a><br>
+  <span style="color:var(--muted)">async/await คือส่วนที่มือใหม่ติดบ่อยที่สุด — หน้านี้อธิบายทั้งแบบสั้นและมีตัวอย่าง
+  ถ้าให้เลือกอ่านอย่างเดียวจากบทนี้ ให้อ่านหน้านี้</span>
+</p>
+<p>อ้างอิงในบทนี้:
+  <a href="https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/types/generics">Generics</a> ·
+  <a href="https://learn.microsoft.com/en-us/dotnet/csharp/nullable-references">Nullable reference types</a> ·
+  <a href="https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/attributes/">Attributes</a> ·
+  <a href="https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/lambda-expressions">Lambda expressions</a>
+  (Microsoft Learn)
+</p>
+
+<h2>มีคำถามไหม?</h2>
+<p>
+  ข้อไหนอ่านแล้วยังไม่เห็นภาพ ถามได้เลยครับ เช่น
+  <em>"Task กับ Task&lt;T&gt; ต่างกันยังไง?"</em> หรือ
+  <em>"ถ้าลืม await แล้ว bug จะเป็นยังไง ขอดูตัวอย่าง"</em>
+</p>
+
+<div class="lesson-footer">
+  <p>
+    ทบทวนแบบอัดแน่น: <a href="../reference/0002-csharp-reading-guide.html">Reference · C# Cheat Sheet ของแอปนี้</a> ·
+    <a href="../reference/0000-glossary.html">Glossary</a>
+  </p>
+  <div class="lesson-nav">
+    <a href="./0001-life-of-an-http-request.html">← บทที่ 1: ชีวิตหนึ่งของ HTTP Request</a>
+    <a href="./0003-translating-controller-to-minimal-api.html">บทที่ 3: เขียน Minimal API ชุดเดียวกัน →</a>
+  </div>
+</div>
+
+</main>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

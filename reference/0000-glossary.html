@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glossary · คำศัพท์ ASP.NET Core</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main class="doc">
+
+<p class="eyebrow">Reference · Glossary · เติมเรื่อยๆ ทุกบท</p>
+<h1>Glossary — คำศัพท์ที่ใช้ในคอร์สนี้</h1>
+<p>ใช้คำเหล่านี้ให้ตรงกันทุกบท ถ้าเจอบทเรียนใช้คำนอกเหนือจากนี้ = เพิ่มลงที่นี่ก่อน</p>
+
+<table>
+  <tr><th style="width:11rem">คำ</th><th>ความหมาย (ฉบับสั้น)</th><th>พบใน</th></tr>
+  <tr><td><strong>Kestrel</strong></td><td>web server ที่มาพร้อม .NET รับ/ส่ง HTTP bytes</td><td>บทที่ 1</td></tr>
+  <tr><td><strong>Pipeline</strong> / ท่อ</td><td>ลำดับ middleware ที่ request ต้องผ่านก่อนถึง endpoint</td><td>บทที่ 1</td></tr>
+  <tr><td><strong>Middleware</strong></td><td>ด่านทำงานกับ request/response ก่อนหรือหลังส่งต่อ (<code>next</code>) เช่น <code>UseHttpsRedirection</code></td><td>บทที่ 1</td></tr>
+  <tr><td><strong>Routing</strong></td><td>จับคู่ HTTP method + URL เข้ากับ endpoint</td><td>บทที่ 1</td></tr>
+  <tr><td><strong>Endpoint</strong></td><td>จุดจบที่ request ถูกประมวลผล (เช่น หนึ่ง action ใน controller)</td><td>บทที่ 1</td></tr>
+  <tr><td><strong>Controller</strong></td><td>คลาสที่สืบทอด <code>ControllerBase</code> รวม action เป็นกลุ่มตามเรื่อง</td><td>บทที่ 1</td></tr>
+  <tr><td><strong>Action</strong></td><td>เมธอดใน controller ที่รับ request หนึ่งๆ</td><td>บทที่ 1</td></tr>
+  <tr><td><strong>DI (Dependency Injection)</strong></td><td>กลไก "ยัดของที่ขอลง constructor" จาก container ที่ลงทะเบียนไว้</td><td>บทที่ 1</td></tr>
+  <tr><td><strong>Scoped</strong></td><td>อายุของ service — หนึ่ง instance ต่อหนึ่ง request</td><td>บทที่ 1</td></tr>
+  <tr><td><strong>Singleton</strong></td><td>อายุของ service — หนึ่ง instance ตลอดชีพแอป</td><td>บทที่ 1</td></tr>
+  <tr><td><strong>Transient</strong></td><td>อายุของ service — สร้างใหม่ทุกครั้งที่ถูกขอ</td><td>บทที่ 1</td></tr>
+  <tr><td><strong>DTO</strong> (Data Transfer Object)</td><td>คลาสรูปทรงข้อมูลที่ใช้รับ/ส่งแทน entity จริง เช่น <code>TodoItemDTO</code></td><td>บทที่ 1</td></tr>
+  <tr><td><strong>EF Core</strong></td><td>ORM — แปลง C# เป็น SQL ให้</td><td>บทที่ 1</td></tr>
+  <tr><td><strong>DbContext</strong></td><td>ประตูต่อ database หนึ่งต่อหนึ่ง connection/scope เช่น <code>TodoDb</code></td><td>บทที่ 1</td></tr>
+  <tr><td><strong>OpenAPI</strong></td><td>มาตรฐานเอกสารบรรยาย API — เครื่องมืออย่าง Swagger UI อ่านจากเอกสารนี้</td><td>บทที่ 1</td></tr>
+  <tr><td><strong>Boilerplate</strong></td><td>โค้ดพิธีรีตองที่ต้องเขียนซ้ำๆ แม้ไม่ใช่หัวใจของงาน</td><td>บทที่ 3 (เร็วๆ นี้)</td></tr>
+  <tr><td><strong>Generics</strong></td><td>ปลอก <code>&lt;T&gt;</code> ที่รับ "ชนิดข้อมูล" เป็นพารามิเตอร์ เช่น <code>List&lt;TodoItem&gt;</code></td><td>บทที่ 2</td></tr>
+  <tr><td><strong>Task / async / await</strong></td><td>ใบรับฝากผลลัพธ์ + รอแบบไม่บล็อกเธรด — <code>await</code> ต้องอยู่ในเมธอด <code>async</code></td><td>บทที่ 2</td></tr>
+  <tr><td><strong>Attribute</strong></td><td>ป้าย <code>[...]</code> ติดคลาส/เมธอด ให้ framework เป็นคนอ่าน เช่น <code>[HttpGet]</code></td><td>บทที่ 2</td></tr>
+  <tr><td><strong>Constructor</strong></td><td>เมธอดพิเศษใช้สร้างออบเจกต์ — DI ใช้เป็นประตูยัดของ</td><td>บทที่ 2</td></tr>
+  <tr><td><strong>Nullable reference type</strong></td><td>ชนิด + <code>?</code> = ยอมรับ null ให้ compiler เตือนก่อนพังตอนรัน</td><td>บทที่ 2</td></tr>
+  <tr><td><strong>Model binding</strong></td><td>กลไกแปลง HTTP request (URL/body/header) เป็นพารามิเตอร์เมธอด</td><td>บทที่ 4 (เร็วๆ นี้)</td></tr>
+  <tr><td><strong>Minimal API</strong></td><td>สไตล์สร้าง endpoint ด้วย <code>app.MapGet(...)</code> + route handler ไม่มีคลาส/attribute — Microsoft แนะนำสำหรับโปรเจกต์ใหม่</td><td>บทที่ 3</td></tr>
+  <tr><td><strong>Route handler</strong></td><td>เมธอด/lambda ที่ถูกเรียกเมื่อเส้นทางตรง — รับ parameter ที่ binding เติมให้</td><td>บทที่ 3</td></tr>
+  <tr><td><strong>Parameter binding</strong></td><td>กลไกเติมค่าให้ parameter ของ handler จาก route/query/body/header/DI</td><td>บทที่ 3</td></tr>
+  <tr><td><strong>Route group</strong></td><td><code>MapGroup("/prefix")</code> — รวม endpoint ที่มีเส้นทางฐานเดียวกัน (แทน <code>[Route]</code> ของ controller)</td><td>บทที่ 3</td></tr>
+  <tr><td><strong>IResult / TypedResults</strong></td><td>ผลลัพธ์ HTTP ที่ระบุสถานะ+เนื้อหาตรงๆ เช่น <code>TypedResults.Ok(x)</code> = 200 + JSON</td><td>บทที่ 3</td></tr>
+  <tr><td><strong>Lambda expression</strong></td><td>ฟังก์ชันแบบสั้น <code>(x) =&gt; ...</code> ที่ใช้เป็น route handler ได้</td><td>บทที่ 3</td></tr>
+  <tr><td><strong>AmbiguousMatchException</strong></td><td>ข้อผิดพลาดตอนมีสอง endpoint แย่งเส้นทางเดียวกัน (ได้ 500)</td><td>บทที่ 3</td></tr>
+</table>
+
+<p class="lesson-footer">กลับไปที่ <a href="../lessons/0001-life-of-an-http-request.html">บทที่ 1</a> ·
+<a href="./0001-http-request-lifecycle.html">Reference: วงจรชีวิต HTTP Request</a></p>
+
+</main>
+</body>
+</html>

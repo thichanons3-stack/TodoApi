@@ -1,0 +1,29 @@
+@TodoApiV2_HostAddress = http://localhost:5018
+
+### Get All Categories
+GET {{TodoApiV2_HostAddress}}/api/categories
+Accept: application/json
+
+### Create Category
+POST {{TodoApiV2_HostAddress}}/api/categories
+Content-Type: application/json
+
+{
+  "name": "Groceries"
+}
+
+### Get Category by ID
+GET {{TodoApiV2_HostAddress}}/api/categories/1
+Accept: application/json
+
+### Update Category
+PUT {{TodoApiV2_HostAddress}}/api/categories/2
+Content-Type: application/json
+
+{
+  "id": 2,
+  "name": "Food"
+}
+
+### Delete Category
+DELETE {{TodoApiV2_HostAddress}}/api/categories/1

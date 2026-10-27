@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference · วงจรชีวิต HTTP Request ใน ASP.NET Core</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main class="doc">
+
+<p class="eyebrow">Reference · ใช้ทวน · พิมพ์ออกมาอ่านได้</p>
+<h1>วงจรชีวิต HTTP Request ใน ASP.NET Core</h1>
+<p>สรุปอัดแน่นจาก <a href="../lessons/0001-life-of-an-http-request.html">บทที่ 1</a> — อ้างอิงพฤติกรรมจาก
+<a href="https://learn.microsoft.com/en-us/aspnet/core/fundamentals/middleware/?view=aspnetcore-10.0">Microsoft Learn: Middleware</a>
+และ <a href="https://learn.microsoft.com/en-us/aspnet/core/fundamentals/apis?view=aspnetcore-10.0">APIs overview (.NET 10)</a></p>
+
+<h2>1. เส้นทาง request (pipeline)</h2>
+<pre><code>Client ──HTTP──▶ Kestrel ──▶ [Middleware ที่ 1] ──▶ [Middleware ที่ 2] ──▶ …
+                                                          │
+                                            Routing จับคู่ URL กับ endpoint
+                                                          │
+                            Controller action ถูกเรียก (instance ใหม่ต่อ request)
+                                                          │
+                       ผลลัพธ์ถูกแปลงเป็น JSON ──▶ ส่งกลับตามท่อเดิม (ย้อนกลับ)</code></pre>
+<ul>
+  <li><strong>Kestrel</strong> — web server ที่ <code>WebApplication.CreateBuilder</code> ตั้งค่าให้ ทำหน้าที่รับ/ส่ง bytes ของ HTTP</li>
+  <li><strong>Middleware</strong> — ด่านตามลำดับที่ request ต้องผ่าน แต่ละด่านทำงานก่อนและ/หรือหลังส่งต่อ (<code>next</code>)</li>
+  <li><strong>Routing</strong> — จับคู่ <code>HTTP method + URL</code> กับ endpoint ที่ลงทะเบียนไว้</li>
+  <li><code>WebApplication</code> เพิ่ม <code>UseRouting</code> / <code>UseEndpoints</code> ให้เอง — เราไม่ได้เขียนเอง แต่มันทำงานจริง</li>
+</ul>
+
+<h2>2. สองครึ่งของ Program.cs</h2>
+<table>
+  <tr><th>ครึ่ง</th><th>บรรทัด</th><th>หน้าที่</th></tr>
+  <tr>
+    <td rowspan="4"><strong>ครึ่งที่ 1<br>สั่งของ<br>(builder)</strong><br><span class="cm">ก่อน <code>Build()</code></span></td>
+    <td><code>CreateBuilder(args)</code></td>
+    <td>สร้าง builder + อ่าน config/logging พื้นฐาน</td>
+  </tr>
+  <tr><td><code>AddControllers()</code></td><td>ลงทะเบียน "กลไก controller" ทั้งชุด (model binding, filters, routing ของ controller)</td></tr>
+  <tr><td><code>AddOpenApi()</code></td><td>ลงทะเบียนบริการสร้าง OpenAPI document</td></tr>
+  <tr><td><code>AddDbContext&lt;TodoDb&gt;()</code></td><td>ลงทะเบียน TodoDb — ทุก request จะได้ instance คนละตัว (scoped)</td></tr>
+  <tr>
+    <td rowspan="4"><strong>ครึ่งที่ 2<br>ต่อท่อ<br>(app)</strong><br><span class="cm">หลัง <code>Build()</code></span></td>
+    <td><code>Build()</code></td>
+    <td>ปิดการลงทะเบียน — กลายเป็น <code>WebApplication</code></td>
+  </tr>
+  <tr><td><code>MapOpenApi()</code></td><td>เพิ่ม endpoint สำหรับเอกสาร OpenAPI (เฉพาะ Development)</td></tr>
+  <tr><td><code>UseHttpsRedirection()</code></td><td>middleware — เปลี่ยนเส้นทาง HTTP ➜ HTTPS</td></tr>
+  <tr><td><code>MapControllers()</code></td><td>อ่าน attribute บน controller ทุกตัว แล้วสร้างตาราง route ใส่ pipeline</td></tr>
+  <tr><td><code>Run()</code></td><td>สั่ง Kestrel เริ่มฟัง request และบล็อกเธรดหลักไว้</td></tr>
+</table>
+
+<h2>3. การจับคู่เส้นทาง (route matching) ของแอปนี้</h2>
+<table>
+  <tr><th>ในโค้ด</th><th>แปลงเป็น</th><th>ตัวอย่าง URL ที่ใช้ได้</th></tr>
+  <tr>
+    <td><code>[Route("api/[controller]")]</code><br>+ <code>class TodoItemsController</code></td>
+    <td><code>api/TodoItems</code><br><span class="cm">(ตัดคำว่า "Controller" ท้ายชื่อคลาส)</span></td>
+    <td><code>/api/TodoItems</code> และ <code>/api/todoitems</code> — ใช้ได้ทั้งคู่ ตัวพิมพ์ไม่สำคัญ</td>
+  </tr>
+  <tr>
+    <td><code>[HttpGet]</code> / <code>[HttpGet("{id}")]</code></td>
+    <td>GET / GET พร้อม parameter</td>
+    <td><code>/api/todoitems</code> → <code>GetTodoItems()</code><br><code>/api/todoitems/3</code> → <code>GetTodoItem(3)</code></td>
+  </tr>
+  <tr>
+    <td><code>[HttpPost]</code> / <code>[HttpPut("{id}")]</code> / <code>[HttpDelete("{id}")]</code></td>
+    <td>POST / PUT / DELETE</td>
+    <td>ตรงกันข้าม — method ต้องตรงด้วย ไม่งั้น 405</td>
+  </tr>
+</table>
+
+<h2>4. กฎที่ต้องจำ (ตัวย่อไว้ทบทวน)</h2>
+<ul>
+  <li><strong>DI สร้างของเมื่อ "ถูกขอ" ไม่ใช่ตอนลงทะเบียน</strong> — <code>AddDbContext</code> แค่สั่งจอง ของจริงถูกสร้างเมื่อมี request มาหา controller</li>
+  <li><strong>Controller = new ใหม่ทุก request</strong> (ค่าเริ่มต้น) — ของที่ constructor ขอ จะถูกยัดใส่ให้อัตโนมัติ</li>
+  <li><strong>Scoped = หนึ่ง instance ต่อหนึ่ง request</strong> — request คนละ request ได้ <code>TodoDb</code> คนละตัว ไม่ชนกัน</li>
+  <li><strong><code>Ok(x)</code> = ผลลัพธ์ + สถานะ 200</strong> — จากนั้น JSON serializer แปลง object เป็น bytes ให้เอง</li>
+  <li><strong>ลำดับ middleware สำคัญ</strong> — ที่เขียนใน Program.cs คือลำดับที่ถูกเรียกจริง</li>
+</ul>
+
+<p class="lesson-footer">กลับไปที่ <a href="../lessons/0001-life-of-an-http-request.html">บทที่ 1</a> ·
+ดู <a href="./0000-glossary.html">Glossary</a> ·
+<a href="../RESOURCES.md">RESOURCES.md</a></p>
+
+</main>
+</body>
+</html>

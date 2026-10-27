@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>บทที่ 1 · ชีวิตหนึ่งของ HTTP Request</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main class="doc">
+
+<p class="eyebrow">บทที่ 1 จาก 6 · Controller-based vs Minimal API</p>
+<h1>ชีวิตหนึ่งของ HTTP Request</h1>
+<p>
+  ก่อนจะเลือกว่าจะใช้ <strong>Controller</strong> หรือ <strong>Minimal API</strong>
+  เราต้องเห็นภาพให้ชัดเสียก่อนว่า request หนึ่งฉบับเดินทางเข้ามาในแอปของคุณอย่างไร
+  สองสไตล์ต่างกันที่ "วิธีจัดการ request" ไม่ใช่ "กลไกข้างใน"
+  และกลไกข้างในที่ว่า = <strong>ท่อ (pipeline)</strong> ที่คุณเห็นใน <code>Program.cs</code> นั่นเอง
+</p>
+
+<div class="callout info">
+  <p><span class="label">เป้าหมายบทนี้</span></p>
+  <p>
+    จบบทนี้ คุณจะอ่าน <code>Program.cs</code> ของตัวเองออกทุกบรรทัด
+    และชี้ได้ว่า request <code>GET /api/todoitems</code> เดินผ่านอะไรบ้าง กว่าจะกลายเป็น JSON
+    อย่างที่เห็นในผลลัพธ์
+  </p>
+</div>
+
+<h2>ผู้เล่นหลัก 5 ตัว</h2>
+<table>
+  <tr><th>ใคร</th><th>ทำอะไร</th><th>อยู่ตรงไหนในโค้ดคุณ</th></tr>
+  <tr><td><strong>Kestrel</strong></td><td>web server — รับและส่ง HTTP bytes</td><td>ถูกเปิดใช้โดย <code>app.Run()</code></td></tr>
+  <tr><td><strong>DI Container</strong></td><td>คลังของที่ลงทะเบียนไว้ พร้อม "ยัด" ให้คนที่ขอ</td><td><code>builder.Services.*</code></td></tr>
+  <tr><td><strong>Middleware</strong></td><td>ด่านตรวจที่ request ต้องผ่านทีละด่าน</td><td><code>app.UseHttpsRedirection()</code></td></tr>
+  <tr><td><strong>Routing</strong></td><td>จับคู่ URL + method เข้ากับ endpoint</td><td><code>app.MapControllers()</code></td></tr>
+  <tr><td><strong>Controller</strong></td><td>ที่ทำงานจริงต่อ request หนึ่งๆ</td><td><code>Controllers/*.cs</code></td></tr>
+</table>
+
+<h2>ครึ่งแรกของ Program.cs = สั่งของ &nbsp;·&nbsp; ครึ่งหลัง = ต่อท่อ</h2>
+<p>
+  นี่คือภาพใหญ่ที่ทำให้ <code>Program.cs</code> ทุกโปรเจกต์อ่านออกง่ายขึ้นมาก
+  ให้จำเส้นแบ่งที่ <code>var app = builder.Build();</code>
+</p>
+
+<pre><code><span class="cm">// ===== ครึ่งที่ 1: "สั่งของ" — ลงทะเบียนบริการเข้า DI container =====</span>
+<span class="cm">// ยังไม่มีอะไรทำงานจริงตอนนี้ มีแต่การ "ลงรายการ" ว่ามีของอะไรบ้าง</span>
+builder.Services.AddControllers();          <span class="cm">// ของ: กลไก controller ทั้งชุด</span>
+builder.Services.AddOpenApi();              <span class="cm">// ของ: ตัวสร้างเอกสาร OpenAPI</span>
+builder.Services.AddDbContext&lt;TodoDb&gt;(...); <span class="cm">// ของ: TodoDb แบบ scoped — ใหม่ทุก request</span>
+
+<span class="cm">// ===== เส้นแบ่ง: ปิดการสั่งของ =====</span>
+var app = builder.Build();
+
+<span class="cm">// ===== ครึ่งที่ 2: "ต่อท่อ" — ประกอบร่าง pipeline ของ request =====</span>
+app.UseHttpsRedirection();  <span class="cm">// ด่านที่ 1: ถ้ามาทาง http ให้เปลี่ยนเส้นทาง</span>
+app.MapControllers();       <span class="cm">// ด่านสุดท้าย: จับ URL ไปหา action ใน controller</span>
+app.Run();                  <span class="cm">// เปิดก๊อก — Kestrel เริ่มฟัง request</span></code></pre>
+
+<p>
+  ทุกครั้งที่เห็น <code>AddSomething()</code> ให้คิดว่า "กำลังลงทะเบียนของเข้าคลัง"
+  และทุกครั้งที่เห็น <code>app.Use...()</code> หรือ <code>app.Map...()</code> ให้คิดว่า "กำลังต่อการ์ดเข้าท่อ"
+  request จะไหลผ่านการ์ดตามลำดับที่เขียนนั่นแหละ
+  <a href="https://learn.microsoft.com/en-us/aspnet/core/fundamentals/middleware/?view=aspnetcore-10.0">[Microsoft Learn: Middleware]</a>
+</p>
+
+<h2>เดินตาม request: GET /api/todoitems</h2>
+<p>ตอนนี้มาดู request จริงจากไฟล์ <code>TodoApiV2.http</code> ของคุณ เดินผ่าน 5 ด่านนี้:</p>
+
+<pre><code>① Kestrel รับ request      GET http://localhost:5018/api/todoitems
+        ↓
+② UseHttpsRedirection     (ด่าน middleware แรก — ข้ามไปถ้าเป็น https อยู่แล้ว)
+        ↓
+③ Routing จับคู่ URL       [Route("api/[controller]")] + TodoItemsController
+   → เส้นทางฐาน = api/TodoItems   +   [HttpGet] ไม่มี parameter
+   → ตรงกับ action: GetTodoItems()
+        ↓
+④ DI สร้าง controller ใหม่  new TodoItemsController(todoDb)
+   (ของที่ constructor ขอด้านบน ถูกยัดใส่ให้อัตโนมัติ)
+        ↓
+⑤ GetTodoItems() ทำงาน     query SQLite → แปลงเป็น TodoItemDTO
+   return Ok(result)       → ส่งกลับเป็น JSON + สถานะ 200</code></pre>
+
+<div class="callout good">
+  <p><span class="label">Aha! #1 — ทำไม URL ตัวเล็กตัวใหญ่ไม่สำคัญ</span></p>
+  <p>
+    <code>[Route("api/[controller]")]</code> + ชื่อคลาส <code>TodoItemsController</code>
+    ถูกแทนที่เป็น <code>api/TodoItems</code> โดย ASP.NET ตัดคำว่า "Controller" ท้ายชื่อออกให้
+    และ routing ไม่สนใจตัวพิมพ์ ดังนั้นทั้ง <code>/api/TodoItems</code> และ <code>/api/todoitems</code>
+    จึงชี้ไป action เดียวกัน
+  </p>
+</div>
+
+<div class="callout good">
+  <p><span class="label">Aha! #2 — Controller ถูก "new" ใหม่ทุก request</span></p>
+  <p>
+    คุณไม่เคยเขียน <code>new TodoItemsController(...)</code> เองเลย ใช่ไหม?
+    นั่นเพราะ DI container เป็นคนสร้างให้ — และ <strong>ทุก request ได้ controller คนละตัว</strong>
+    พร้อม <code>TodoDb</code> (scoped) คนละ instance ด้วย
+    นี่คือเหตุผลที่ constructor injection ปลอดภัย: แต่ละ request ไม่แย่งของกันใช้
+  </p>
+</div>
+
+<h2>ลองของจริง (5 นาที)</h2>
+<p>เปิด terminal ในโฟลเดอร์โปรเจกต์ แล้วทำตามลำดับ:</p>
+<ol class="steps">
+  <li>รันแอป: <code>dotnet run</code> — รอข้อความว่าแอปกำลังฟังที่ <code>localhost:5018</code></li>
+  <li>เปิดไฟล์ <code>TodoApiV2.http</code> แล้วกด <strong>Send Request</strong> ที่ request แรก (GET categories) — ถ้ายังไม่มี request ของ todoitems ให้เพิ่มเอง:
+<pre><code>GET http://localhost:5018/api/todoitems
+Accept: application/json</code></pre>
+  </li>
+  <li>ตอบในใจก่อนกดส่ง: "ด่านไหนบ้างที่ request นี้ต้องผ่าน?" แล้วส่ง — ถ้าได้ <code>200 OK</code> พร้อม JSON แปลว่าเดาถูก</li>
+  <li>กลับมาเปิด <code>Program.cs</code> อ่านอีกรอบ แล้วชี้ทีละบรรทัดว่า "บรรทัดนี้ อยู่ตรงไหนใน 5 ขั้นตอนเมื่อกี้"</li>
+</ol>
+
+<div class="quiz" data-best-key="lesson-1-quiz">
+  <p class="quiz-score"></p>
+
+  <div class="q">
+    <p class="prompt">1 · บรรทัด <code>app.MapControllers();</code> ทำหน้าที่อะไร?</p>
+    <div class="opts">
+      <button class="opt">ลงทะเบียนบริการของ MVC ทั้งชุดลงใน DI container</button>
+      <button class="opt" data-correct>ไปอ่าน attribute บน controller เพื่อสร้างตารางเส้นทาง</button>
+      <button class="opt">เริ่มตัวรับฟัง HTTP ขึ้นมาและบล็อกเธรดหลักไว้</button>
+      <button class="opt">ตรวจและเปลี่ยนคำขอ HTTP ให้กลายเป็น HTTPS</button>
+    </div>
+    <p class="feedback" hidden>MapControllers() ไม่ได้ลงทะเบียนอะไรเลย — มันไปอ่าน [Route] และ [HttpGet] ที่ติดอยู่บน controller ทุกตัว แล้วสร้างตารางเส้นทางใส่ pipeline ให้ต่างหาก ส่วนการลงทะเบียนกลไก controller ทั้งชุดเป็นหน้าที่ของ AddControllers() ในครึ่งแรกของ Program.cs</p>
+  </div>
+
+  <div class="q">
+    <p class="prompt">2 · เมื่อมี <code>GET /api/todoitems</code> เข้ามา ใครเป็นคนสร้าง <code>TodoItemsController</code>?</p>
+    <div class="opts">
+      <button class="opt" data-correct>DI container สร้างให้ใหม่ทุกครั้งที่มี request เข้ามา</button>
+      <button class="opt">Program.cs สร้างรอไว้ตอนเริ่มแอปเพียงครั้งเดียว</button>
+      <button class="opt">โค้ดใน action เป็นคน new ขึ้นมาเองทุก request</button>
+      <button class="opt">ไม่มีใครสร้าง มันถูก reuse ตลอดชีพของแอปเสมอ</button>
+    </div>
+    <p class="feedback" hidden>DI container เป็นคน new ให้ทุก request — คุณไม่เคยเขียน new เองเลย และแต่ละ request ได้ instance คนละตัว พร้อม TodoDb คนละ instance ด้วย จึงไม่แย่งของกันใช้</p>
+  </div>
+
+  <div class="q">
+    <p class="prompt">3 · บรรทัดใดใน Program.cs ลงทะเบียน <code>TodoDb</code> ให้ controller ยืมใช้?</p>
+    <div class="opts">
+      <button class="opt">builder.Services.AddOpenApi();</button>
+      <button class="opt">app.UseHttpsRedirection();</button>
+      <button class="opt">builder.Services.AddControllers();</button>
+      <button class="opt" data-correct>builder.Services.AddDbContext&lt;TodoDb&gt;(...);</button>
+    </div>
+    <p class="feedback" hidden>AddDbContext&lt;TodoDb&gt;() คือบรรทัดที่ลงทะเบียน TodoDb แบบ scoped (ใหม่ทุก request) ส่วน AddOpenApi กับ AddControllers เป็นคนละของกัน และ UseHttpsRedirection อยู่ครึ่งหลังของไฟล์ คือครึ่ง "ต่อท่อ" ไม่ใช่ครึ่ง "สั่งของ"</p>
+  </div>
+
+  <div class="q">
+    <p class="prompt">4 · ทำไม controller ถึงมี <code>TodoDb</code> พร้อมใช้ใน constructor โดยคุณไม่ต้องเขียน new เอง?</p>
+    <div class="opts">
+      <button class="opt" data-correct>DI ยัดของที่ container มีใส่ให้ตอนสร้าง instance</button>
+      <button class="opt">TodoDb เป็น static field ที่ทุกคลาสใช้ร่วมกัน</button>
+      <button class="opt">EF Core ส่งมันเข้ามาผ่าน query string ของ request</button>
+      <button class="opt">คุณเขียน new TodoDb() ไว้ใน Program.cs แล้ว</button>
+    </div>
+    <p class="feedback" hidden>ตอน DI container จะสร้าง instance มันดูก่อนว่า constructor ขออะไร แล้วยัดใส่ให้ตรงนั้นพอดี — นี่คือ constructor injection และเป็นเหตุผลของ Aha! #2 ว่าทำไมคุณไม่ต้องเขียน new เอง</p>
+  </div>
+
+  <div class="q">
+    <p class="prompt">5 · <code>/api/todoitems</code> กับ <code>/api/TodoItems</code> ต่างกันอย่างไร?</p>
+    <div class="opts">
+      <button class="opt">ตัวแรกใช้ได้ ตัวที่สองต้องพิมพ์ตรงกับชื่อคลาสเป๊ะ</button>
+      <button class="opt" data-correct>ใช้ได้ทั้งคู่ เพราะ routing ไม่สนใจตัวพิมพ์เล็กใหญ่</button>
+      <button class="opt">ใช้ได้ทั้งคู่ แต่ได้ผลลัพธ์เป็นคนละชุดกัน</button>
+      <button class="opt">ใช้ไม่ได้ทั้งคู่ เพราะ URL ต้องลงท้ายด้วย .json</button>
+    </div>
+    <p class="feedback" hidden>ชื่อ [controller] ถูกแทนด้วยชื่อคลาสที่ตัดคำว่า Controller ท้ายชื่อออก แล้ว routing ก็ไม่สนใจตัวพิมพ์ ทั้งสอง URL จึงชี้ไป action เดียวกันเป๊ะ — ผลลัพธ์ที่ได้เหมือนกันทุก byte</p>
+  </div>
+
+  <div class="q">
+    <p class="prompt">6 · ตอนที่ action ทำ <code>return Ok(result);</code> เกิดอะไรขึ้น?</p>
+    <div class="opts">
+      <button class="opt">บันทึกผลลัพธ์ลง database เพิ่มก่อนส่งกลับเสมอ</button>
+      <button class="opt">แปลงผลลัพธ์เป็นหน้า HTML แล้วส่งกลับให้ browser</button>
+      <button class="opt" data-correct>ส่งผลลัพธ์กลับเป็น JSON พร้อมรหัสสถานะ 200</button>
+      <button class="opt">สร้าง controller ใหม่เพื่อทำหน้าที่ส่งผลลัพธ์</button>
+    </div>
+    <p class="feedback" hidden>Ok(result) คือส่ง object กลับเป็น JSON พร้อมสถานะ 200 — ไม่มีการเขียนลง database เพิ่ม ไม่ได้แปลงเป็น HTML และไม่ต้องสร้าง controller ใหม่ เพราะทุกอย่างเกิดขึ้นใน action เดิม</p>
+  </div>
+</div>
+
+<h2>สรุป</h2>
+<ul>
+  <li><code>Program.cs</code> ครึ่งแรก = <strong>ลงทะเบียนของ</strong> (DI) · ครึ่งหลัง = <strong>ต่อท่อ</strong> (pipeline)</li>
+  <li>Routing แปลง <code>[Route("api/[controller]")]</code> + ชื่อคลาส เป็นเส้นทาง และจับคู่กับ method + URL</li>
+  <li>Controller และ <code>TodoDb</code> ถูกสร้างใหม่ <strong>ทุก request</strong> โดย DI — คุณไม่ต้อง new เอง</li>
+  <li><code>Ok(result)</code> = ส่ง JSON กลับพร้อมสถานะ 200</li>
+</ul>
+
+<h2>อ่านต่อ (แหล่งข้อมูลหลัก)</h2>
+<p>
+  <a href="https://learn.microsoft.com/en-us/aspnet/core/fundamentals/apis?view=aspnetcore-10.0">
+  <strong>APIs overview — Microsoft Learn (.NET 10)</strong></a><br>
+  <span style="color:var(--muted)">หน้านี้คือหัวใจของคอร์สเรา — Microsoft บอกเองว่า
+  "For new projects, we recommend using Minimal APIs" พร้อม criteria ว่าเมื่อไรควรใช้ controllers
+  เราจะกลับมาอ่านหน้านี้อีกครั้งในบทที่ 6 ตอนตัดสินใจ</span>
+</p>
+<p>อ้างอิงในบทนี้: <a href="https://learn.microsoft.com/en-us/aspnet/core/fundamentals/middleware/?view=aspnetcore-10.0">Middleware — Microsoft Learn</a></p>
+
+<h2>มีคำถามไหม?</h2>
+<p>
+  ผมคือครูของคุณ — ถามต่อได้เสมอ เช่น <em>"แล้ว AddScoped กับ AddSingleton ต่างกันยังไง?"</em>
+  หรือ <em>"ถ้าลบ MapControllers ออก จะเกิดอะไรขึ้น?"</em> ไม่มีคำถามที่โง่สำหรับเรื่องนี้
+</p>
+
+<div class="lesson-footer">
+  <p>
+    ทบทวนแบบอัดแน่น: <a href="../reference/0001-http-request-lifecycle.html">Reference · วงจรชีวิต HTTP Request</a> ·
+    <a href="../reference/0000-glossary.html">Glossary</a>
+  </p>
+  <div class="lesson-nav">
+    <span class="disabled">← บทก่อนหน้า (ยังไม่มี)</span>
+    <a href="./0002-csharp-essentials.html">บทที่ 2: C# ที่ต้องรู้เพื่ออ่านโค้ดตัวเอง →</a>
+  </div>
+</div>
+
+</main>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

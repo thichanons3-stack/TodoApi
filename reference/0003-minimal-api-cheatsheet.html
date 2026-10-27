@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference · ตารางแปลง Controller → Minimal API</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main class="doc">
+
+<p class="eyebrow">Reference · ใช้ทวน · พิมพ์ออกมาอ่านได้</p>
+<h1>ตารางแปลง Controller → Minimal API</h1>
+<p>สรุปอัดแน่นจาก <a href="../lessons/0003-translating-controller-to-minimal-api.html">บทที่ 3</a> —
+ทุกบรรทัดเทียบกับ <code>Controllers/TodoItemsController.cs</code> จริงในโปรเจกต์นี้
+อ้างอิง <a href="https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis?view=aspnetcore-10.0">Minimal APIs quick reference (.NET 10)</a></p>
+
+<h2>1 · ตารางแปลง ( cheat sheet หลัก )</h2>
+<table>
+  <tr><th>Controller</th><th>Minimal API</th></tr>
+  <tr><td><code>[Route("api/[controller]")]</code> + ชื่อคลาส</td><td><code>app.MapGroup("/api/todoitems")</code></td></tr>
+  <tr><td><code>[HttpGet]</code></td><td><code>group.MapGet("/", handler)</code></td></tr>
+  <tr><td><code>[HttpGet("{id}")]</code></td><td><code>group.MapGet("/{id:int}", handler)</code></td></tr>
+  <tr><td><code>[HttpPost]</code></td><td><code>group.MapPost("/", handler)</code></td></tr>
+  <tr><td><code>[HttpPut("{id}")]</code></td><td><code>group.MapPut("/{id:int}", handler)</code></td></tr>
+  <tr><td><code>[HttpDelete("{id}")]</code></td><td><code>group.MapDelete("/{id:int}", handler)</code></td></tr>
+  <tr><td>constructor รับ <code>TodoDb</code> + <code>_context</code></td><td>parameter <code>TodoDb db</code> (DI เติมให้)</td></tr>
+  <tr><td><code>async Task&lt;ActionResult&lt;T&gt;&gt;</code></td><td><code>async Task&lt;IResult&gt;</code></td></tr>
+  <tr><td><code>return Ok(x)</code></td><td><code>return TypedResults.Ok(x)</code></td></tr>
+  <tr><td><code>return NotFound(o)</code></td><td><code>return TypedResults.NotFound(o)</code></td></tr>
+  <tr><td><code>return BadRequest(o)</code></td><td><code>return TypedResults.BadRequest(o)</code></td></tr>
+  <tr><td><code>return NoContent()</code></td><td><code>return TypedResults.NoContent()</code></td></tr>
+  <tr><td><code>return CreatedAtAction(nameof(F), new { id }, o)</code></td><td><code>return TypedResults.Created($"/api/todoitems/{id}", o)</code></td></tr>
+  <tr><td><code>app.MapControllers()</code></td><td><code>TodoItemsEndpoints.MapTodoItems(app)</code></td></tr>
+</table>
+
+<h2>2 · กฎ parameter binding</h2>
+<table>
+  <tr><th>ชนิด parameter</th><th>ที่มา</th></tr>
+  <tr><td><code>int id</code> ที่มี <code>{id}</code> ใน route</td><td>Route value</td></tr>
+  <tr><td>complex type ใน POST/PUT เช่น <code>TodoItemDTO dto</code></td><td>Body (JSON)</td></tr>
+  <tr><td>ชนิดที่ลงทะเบียนใน DI เช่น <code>TodoDb db</code></td><td>DI container (ไม่ต้องใช้ <code>[FromServices]</code>)</td></tr>
+  <tr><td>primitive ที่ไม่มีใน route เช่น <code>int page</code></td><td>Query string</td></tr>
+  <tr><td>ระบุชัดเจน</td><td><code>[FromRoute]</code> <code>[FromQuery]</code> <code>[FromBody]</code> <code>[FromHeader]</code> <code>[FromForm]</code> <code>[FromServices]</code></td></tr>
+</table>
+<ul>
+  <li><strong>GET / HEAD / OPTIONS / DELETE ไม่อ่าน body อัตโนมัติ</strong> — ต้อง <code>[FromBody]</code> ถ้าจะใช้</li>
+  <li>parameter ธรรมดา = <strong>required</strong> — ถ้าไม่มีค่าให้ bind จะ error; อยากให้ optional ใช้ <code>int?</code> หรือค่าเริ่มต้น <code>int page = 1</code></li>
+  <li>ชนิด route constraint เช่น <code>{id:int}</code> — ถ้าค่าไม่ตรง (เช่น <code>/api/todoitems/abc</code>) จะไม่จับคู่ → <strong>404</strong> (ทดสอบแล้ว)</li>
+</ul>
+
+<h2>3 · ค่าที่ return ได้</h2>
+<table>
+  <tr><th>return</th><th>พฤติกรรม</th><th>Content-Type</th></tr>
+  <tr><td><code>string</code></td><td>เขียนลง response ตรงๆ</td><td><code>text/plain</code></td></tr>
+  <tr><td><code>T</code> (DTO, anonymous)</td><td>JSON-serialize ให้เอง</td><td><code>application/json</code></td></tr>
+  <tr><td><code>IResult</code> (<code>TypedResults.*</code>)</td><td>เรียก method ของ result</td><td>ตามชนิด</td></tr>
+</table>
+<p>Microsoft แนะนำ <code>TypedResults</code> มากกว่า <code>Results</code> — รู้ชนิดแน่นอนตอน compile และช่วยให้สร้าง OpenAPI ได้แม่นขึ้น</p>
+
+<h2>4 · โครงไฟล์ที่ใช้จริงในโปรเจกต์นี้</h2>
+<pre><code><span class="cm">// Endpoints/TodoItemsEndpoints.cs</span>
+public static class TodoItemsEndpoints
+{
+    public static void MapTodoItems(this WebApplication app)
+    {
+        var group = app.MapGroup("/api/todoitems");
+        group.MapGet("/", GetTodoItems);
+        group.MapGet("/{id:int}", GetTodoItem);
+        group.MapPost("/", CreateTodoItem);
+        group.MapPut("/{id:int}", UpdateTodoItem);
+        group.MapDelete("/{id:int}", DeleteTodoItem);
+    }
+
+    private static async Task&lt;IResult&gt; GetTodoItems(TodoDb db)
+    {
+        var todos = await db.TodoItems.Include(t =&gt; t.Category).ToListAsync();
+        return TypedResults.Ok(todos.Select(t =&gt; new TodoItemDTO(t)).ToList());
+    }
+    <span class="cm">// handler อื่นๆ คัด logic จาก TodoItemsController ได้ทั้งดุ้น</span>
+}
+
+<span class="cm">// Program.cs — ครึ่งแรกไม่ต้องแก้ ครึ่งหลังเปลี่ยนแค่บรรทัดเดียว</span>
+TodoItemsEndpoints.MapTodoItems(app);   <span class="cm">// แทนที่ app.MapControllers();</span></code></pre>
+
+<h2>5 · กับดัก 3 อย่างที่ทดสอบกับ .NET 10 แล้ว</h2>
+<ul>
+  <li><strong>แย่งเส้นทาง</strong> — register สอง endpoint ที่ <code>/api/todoitems</code> เดียวกัน → request แรกได้
+      <code>AmbiguousMatchException</code> (HTTP 500) ตอนทดลองให้ใช้ prefix คนละอัน</li>
+  <li><strong>validation ไม่วิ่งเอง</strong> — ไม่มี <code>builder.Services.AddValidation();</code>
+      → DataAnnotations บน DTO ถูกเพิกเฉย ข้อมูลผิดวิ่งเข้า handler เลย</li>
+  <li><strong>MapGroup + <code>MapGet("/")</code></strong> — จับทั้ง <code>/api/todoitems</code> และ
+      <code>/api/todoitems/</code> (มี/ไม่มี slash ท้าย ได้ 200 ทั้งคู่ — ทดสอบแล้ว)</li>
+</ul>
+
+<p class="lesson-footer">กลับไปที่ <a href="../lessons/0003-translating-controller-to-minimal-api.html">บทที่ 3</a> ·
+<a href="./0002-csharp-reading-guide.html">Reference: C# Cheat Sheet</a> ·
+<a href="./0000-glossary.html">Glossary</a></p>
+
+</main>
+</body>
+</html>

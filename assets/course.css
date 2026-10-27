@@ -1,0 +1,257 @@
+/* ============================================================
+   TodoApiV2 Teaching Workspace — shared stylesheet
+   ใช้ร่วมกันทุก lesson และ reference doc (Tufte-ish, print-friendly)
+   ============================================================ */
+
+:root {
+  --bg: #fdfcf9;
+  --ink: #1a1a1a;
+  --muted: #6b6560;
+  --accent: #1f4e79;
+  --accent-soft: #eaf1f8;
+  --rule: #dcd6ce;
+  --code-bg: #f4f1ec;
+  --good: #2e6f40;
+  --good-soft: #e8f3ea;
+  --bad: #9e2b25;
+  --bad-soft: #f9e9e7;
+  --warn: #8a6100;
+  --warn-soft: #fbf1dc;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
+    "Noto Serif Thai", "Thonburi", serif;
+  --sans: "Avenir Next", "Helvetica Neue", Helvetica, Arial,
+    "Noto Sans Thai", sans-serif;
+  --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------- layout ---------- */
+
+.doc {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 5rem;
+}
+
+.eyebrow {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 0.5rem;
+}
+
+h1 {
+  font-size: 2rem;
+  line-height: 1.25;
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+}
+
+h2 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 2.75rem 0 0.75rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 1.8rem 0 0.5rem;
+}
+
+p { margin: 0.8rem 0; }
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+strong { font-weight: 600; }
+
+hr { border: 0; border-top: 1px solid var(--rule); margin: 2.5rem 0; }
+
+/* ---------- code ---------- */
+
+code {
+  font-family: var(--mono);
+  font-size: 0.82em;
+  background: var(--code-bg);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+
+pre {
+  background: var(--code-bg);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  padding: 0.9rem 1.1rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.cm { color: var(--muted); }         /* comment in code blocks */
+.hl { background: #fde9c8; }         /* highlighted line */
+
+/* ---------- tables ---------- */
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.2rem 0;
+  font-size: 0.95rem;
+}
+
+th, td {
+  border: 1px solid var(--rule);
+  padding: 0.5rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: var(--code-bg);
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ---------- callouts ---------- */
+
+.callout {
+  border-radius: 0 8px 8px 0;
+  padding: 0.9rem 1.15rem;
+  margin: 1.4rem 0;
+  border-left: 4px solid var(--rule);
+}
+
+.callout > :first-child { margin-top: 0; }
+.callout > :last-child { margin-bottom: 0; }
+
+.callout.good { background: var(--good-soft); border-left-color: var(--good); }
+.callout.warn { background: var(--warn-soft); border-left-color: var(--warn); }
+.callout.bad  { background: var(--bad-soft);  border-left-color: var(--bad); }
+.callout.info { background: var(--accent-soft); border-left-color: var(--accent); }
+
+/* ---------- numbered real-world steps ---------- */
+
+.steps { padding-left: 1.4rem; }
+.steps li { margin: 0.55rem 0; }
+
+/* ---------- inline labels ---------- */
+
+.label {
+  font-family: var(--sans);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* ---------- lesson footer / nav ---------- */
+
+.lesson-footer {
+  margin-top: 3.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.lesson-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  font-family: var(--sans);
+  font-size: 0.85rem;
+}
+
+.lesson-nav a, .lesson-nav span { white-space: nowrap; }
+.lesson-nav .disabled { color: var(--muted); opacity: 0.55; }
+
+/* ---------- quiz (wired by quiz.js) ---------- */
+
+.quiz { margin: 1.5rem 0; }
+
+.q {
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 1rem 1.15rem;
+  margin: 1rem 0;
+  background: #fff;
+}
+
+.q .prompt { margin: 0 0 0.75rem; font-weight: 600; }
+
+.q .opts { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.q .opt {
+  font: inherit;
+  font-size: 0.95rem;
+  text-align: left;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color 120ms, background 120ms;
+}
+
+.q .opt:hover:not(:disabled) { border-color: var(--accent); }
+
+.q .opt.correct { background: var(--good-soft); border-color: var(--good); font-weight: 600; }
+.q .opt.wrong { background: var(--bad-soft); border-color: var(--bad); }
+.q .opt:disabled { cursor: default; color: var(--ink); }
+
+.q .feedback {
+  margin: 0.7rem 0 0;
+  font-size: 0.92rem;
+  border-left: 3px solid var(--rule);
+  padding-left: 0.8rem;
+  color: var(--muted);
+}
+
+.q .feedback.shown { color: var(--ink); }
+.q .feedback.good { border-left-color: var(--good); }
+.q .feedback.bad { border-left-color: var(--bad); }
+
+.quiz-score {
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 0.75rem;
+}
+
+/* ---------- print ---------- */
+
+@media print {
+  body { background: #fff; font-size: 11pt; }
+  .doc { max-width: none; padding: 0; }
+  .q .opts { display: none; }        /* quiz is screen-only */
+  a { color: var(--ink); text-decoration: none; }
+  pre, table, .callout { break-inside: avoid; }
+}

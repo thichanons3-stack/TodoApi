@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>บทที่ 3 · เขียน Minimal API ชุดเดียวกัน</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main class="doc">
+
+<p class="eyebrow">บทที่ 3 จาก 6 · Controller-based vs Minimal API</p>
+<h1>เขียน Minimal API ชุดเดียวกัน</h1>
+<p>
+  คุณอ่าน <code>Program.cs</code> ออกแล้ว (บทที่ 1) และอ่าน syntax C# ในไฟล์ตัวเองได้ทุกบรรทัดแล้ว (บทที่ 2)
+  บทนี้เราจะทำสิ่งที่คอร์สนี้รอคอย — <strong>แปลง <code>TodoItemsController</code> ของคุณเป็น Minimal API</strong>
+  แบบ line-by-line แล้วดูกันให้ชัดว่า อะไร <strong>หายไป</strong> อะไร <strong>ยังอยู่เดิมทุกประการ</strong>
+</p>
+
+<div class="callout info">
+  <p><span class="label">เป้าหมายบทนี้</span></p>
+  <p>
+    เปิด <code>Controllers/TodoItemsController.cs</code> ค้างไว้ข้างๆ แล้วอ่านเทียบไปทีละส่วน
+    จบบทนี้คุณจะมีโค้ด Minimal API ชุด CRUD ชุดเดียวกับของคุณ — ที่รันได้จริง — อยู่ในมือ
+  </p>
+</div>
+
+<h2>ผู้เล่นเดิมทั้งหมด — เปลี่ยนแค่ "เปลือก"</h2>
+<p>
+  ก่อนลงโค้ด ให้เห็นภาพใหญ่ก่อนว่าสิ่งที่เปลี่ยนคืออะไรบ้าง ทุกอย่างในคอลัมน์กลางยังเป็นของเดิมเป๊ะ
+</p>
+<table>
+  <tr><th>ใน Controller (โค้ดคุณ)</th><th>ใน Minimal API</th><th>อะไรที่ยังเหมือนเดิม</th></tr>
+  <tr>
+    <td><code>[ApiController]</code><br><code>[Route("api/[controller]")]</code><br><code>class TodoItemsController : ControllerBase</code></td>
+    <td><code>app.MapGroup("/api/todoitems")</code></td>
+    <td>เส้นทางฐานเดียวกัน — URL ที่ใช้ได้ไม่เปลี่ยน</td>
+  </tr>
+  <tr>
+    <td><code>private readonly TodoDb _context;</code><br>+ constructor</td>
+    <td>parameter <code>TodoDb db</code></td>
+    <td>DI container ตัวเดิม — <code>AddDbContext</code> บรรทัดเดิม ไม่ต้องแก้เลย</td>
+  </tr>
+  <tr>
+    <td><code>[HttpGet]</code><br><code>public async Task&lt;...&gt; GetTodoItems()</code></td>
+    <td><code>group.MapGet("/", handler)</code></td>
+    <td>EF Core query, <code>TodoItemDTO</code>, ตัวlogic ข้างใน คัดลอกมาได้ทั้งดุ้น</td>
+  </tr>
+  <tr>
+    <td><code>[HttpGet("{id}")]</code> + <code>int id</code></td>
+    <td><code>group.MapGet("/{id:int}", handler)</code> + <code>int id</code></td>
+    <td>การดึงค่าจาก URL ยังคงเป็น <code>int id</code> ตัวเดิม</td>
+  </tr>
+  <tr>
+    <td><code>return Ok(x)</code><br><code>NotFound(...)</code><br><code>BadRequest(...)</code><br><code>NoContent()</code></td>
+    <td><code>TypedResults.Ok(x)</code><br><code>TypedResults.NotFound(...)</code><br><code>TypedResults.BadRequest(...)</code><br><code>TypedResults.NoContent()</code></td>
+    <td>รหัสสถานะ HTTP ที่ได้ — 200 / 404 / 400 / 204 — <strong>เหมือนเดิมทุกตัว</strong></td>
+  </tr>
+</table>
+
+<h2>1 · GET อันแรก — ดู side by side</h2>
+<p>ซ้ายมือคือโค้ดคุณทุกวันนี้ ขวามือคือ Minimal API ที่ทำงานเหมือนกันทุกประการ:</p>
+
+<pre><code><span class="cm">// ===== ฝั่ง Controller (โค้ดคุณ) =====</span>
+[HttpGet]
+public async Task&lt;ActionResult&lt;IEnumerable&lt;TodoItemDTO&gt;&gt;&gt; GetTodoItems()
+{
+    var todos = await _context.TodoItems.Include(t =&gt; t.Category).ToListAsync();
+    var result = todos.Select(t =&gt; new TodoItemDTO(t)).ToList();
+    return Ok(result);
+}</code></pre>
+
+<pre><code><span class="cm">// ===== ฝั่ง Minimal API =====</span>
+group.MapGet("/", async (TodoDb db) =&gt;
+{
+    var todos = await db.TodoItems.Include(t =&gt; t.Category).ToListAsync();
+    var result = todos.Select(t =&gt; new TodoItemDTO(t)).ToList();
+    return TypedResults.Ok(result);
+});</code></pre>
+
+<ul>
+  <li><strong>บรรทัด query 3 บรรทัดแรก = คัดลอกมาเป๊ะ</strong> — เปลี่ยนแค่ <code>_context</code> เป็น <code>db</code> (ชื่อ parameter)</li>
+  <li><strong>ไม่มีคลาส ไม่มี constructor ไม่มี attribute เหลือเลย</strong> — เส้นทาง + method ถูกรวมเป็น <code>MapGet("/", ...)</code> บรรทัดเดียว</li>
+  <li><code>TodoDb db</code> ไม่ได้มาจากการประกาศตัวแปร — มันคือ <strong>parameter ที่ DI เติมให้เอง</strong> เพราะ <code>AddDbContext&lt;TodoDb&gt;()</code> ลงทะเบียนไว้แล้วใน Program.cs ของคุณ (บรรทัดเดิม ไม่ต้องแก้)</li>
+</ul>
+
+<div class="callout good">
+  <p><span class="label">Aha! — constructor ถูกแทนที่ด้วย parameter</span></p>
+  <p>
+    บทที่ 1 เราเห็นว่า DI ยัดของใส่ constructor ของ controller — ใน Minimal API กลไกเดียวกันนี้
+    ย้ายไปที่ <strong>parameter ของ route handler</strong> แทน ถ้าชนิดไหนลงทะเบียนอยู่ใน container
+    คุณก็เขียนรับเป็น parameter ได้เลย ไม่ต้องใช้ <code>[FromServices]</code> ก็ได้
+  </p>
+</div>
+
+<h2>2 · กฎ parameter binding — request อะไร เข้า parameter ไหน</h2>
+<p>
+  นี่คือหัวใจที่ทำให้ Minimal API สั้น — framework "เดา" ให้เองจากชนิดและ HTTP method
+  (อ้างอิง: <a href="https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis/parameter-binding?view=aspnetcore-10.0">Parameter binding — Microsoft Learn</a>)
+</p>
+<table>
+  <tr><th>Parameter</th><th>ถูกเติมมาจาก</th><th>ตัวอย่างในโค้ดคุณ</th></tr>
+  <tr><td><code>int id</code></td><td>Route value (ส่วน <code>{id}</code> ใน URL)</td><td><code>MapGet("/{id:int}", (int id, ...) =&gt; ...)</code></td></tr>
+  <tr><td><code>TodoItemDTO dto</code></td><td>Body ของ request (JSON) — POST/PUT เท่านั้น</td><td><code>MapPost("/", (TodoItemDTO dto, ...) =&gt; ...)</code></td></tr>
+  <tr><td><code>TodoDb db</code></td><td>DI container</td><td>ทุก handler ในบทนี้</td></tr>
+  <tr><td><code>int page</code> (ที่ไม่มีใน URL)</td><td>Query string — เช่น <code>?page=2</code></td><td>ไม่ได้ใช้ในโปรเจกต์นี้ แต่รู้ไว้ใช้ตอนท้าย</td></tr>
+</table>
+<div class="callout warn">
+  <p><strong>ข้อควรจำ:</strong> HTTP method ที่ <code>GET</code>, <code>HEAD</code>, <code>OPTIONS</code> และ <code>DELETE</code>
+  <strong>ไม่อ่าน body ให้อัตโนมัติ</strong> — ถ้าจะส่ง body ต้องระบุ <code>[FromBody]</code> ตรงๆ ส่วน POST/PUT อ่านให้เอง</p>
+</div>
+
+<h2>3 · POST — จุดที่ต่างชัดที่สุด: สร้าง "ที่อยู่" ให้ของใหม่</h2>
+<p>
+  บรรทัดสุดท้ายของ <code>CreateTodoItem</code> คุณใช้ <code>CreatedAtAction</code> ซึ่งผูกกับชื่อ action —
+  Minimal API ไม่มีชื่อ action จึงสร้าง URL ตรงๆ:
+</p>
+
+<pre><code><span class="cm">// ฝั่ง Controller — ผูกกลับไปหาเมธอด GetTodoItem (ชื่อ action)</span>
+return CreatedAtAction(nameof(GetTodoItem), new { id = todoItem.Id }, new TodoItemDTO(todoItem));
+
+<span class="cm">// ฝั่ง Minimal API — เขียน path ให้เห็นตรงๆ (หรือใช้ .WithName() + link generator ก็ได้)</span>
+return TypedResults.Created($"/api/todoitems/{todoItem.Id}", new TodoItemDTO(todoItem));</code></pre>
+
+<p>
+  ผลลัพธ์ <strong>เหมือนกันทุกประการ</strong>: ตอบ <code>201 Created</code> พร้อม header <code>Location</code>
+  ชี้ไปที่ของที่เพิ่งสร้าง — เหมือนกับที่ controller ของคุณทำอยู่ตอนนี้
+</p>
+
+<p>ส่วนเนื้อในของ handler คัดลอกจากโค้ดคุณได้ทั้งดุ้น ไม่มีอะไรต้องคิดใหม่:</p>
+
+<pre><code>group.MapPost("/", async (TodoItemDTO dto, TodoDb db) =&gt;
+{
+    var categoryExists = await db.Categories.AnyAsync(c =&gt; c.Id == dto.CategoryId);
+    if (!categoryExists)
+        return TypedResults.BadRequest(
+            new { message = $"ไม่พบหมวดหมู่ ID: {dto.CategoryId} ในระบบกรุณาตรวจสอบอีกครั้ง" });
+
+    var todoItem = new TodoItem
+    {
+        Title = dto.Title,
+        IsComplete = dto.IsComplete,
+        DueDate = dto.DueDate ?? DateTime.UtcNow.AddDays(1),
+        CategoryId = dto.CategoryId
+    };
+
+    db.TodoItems.Add(todoItem);
+    await db.SaveChangesAsync();
+    await db.Entry(todoItem).Reference(t =&gt; t.Category).LoadAsync();
+
+    return TypedResults.Created($"/api/todoitems/{todoItem.Id}", new TodoItemDTO(todoItem));
+});</code></pre>
+
+<h2>4 · ค่าที่ return ได้ — 3 แบบ</h2>
+<table>
+  <tr><th>return อะไร</th><th>framework ทำอย่างไร</th><th>Content-Type</th></tr>
+  <tr><td><code>string</code></td><td>เขียนลง response ตรงๆ</td><td><code>text/plain</code></td></tr>
+  <tr><td><code>new { ... }</code> หรือ DTO</td><td>JSON-serialize ให้เอง</td><td><code>application/json</code></td></tr>
+  <tr><td><code>IResult</code> เช่น <code>TypedResults.Ok(x)</code></td><td>เรียก method ของ object นั้น</td><td>ตามชนิดของ result</td></tr>
+</table>
+<p>
+  Microsoft แนะนำให้ใช้ <code>TypedResults</code> มากกว่า <code>Results</code> เพราะ compiler รู้ชนิดที่แน่นอน
+  และช่วยให้สร้างเอกสาร OpenAPI ได้แม่นยำขึ้น — บทที่ 5 เราจะได้เห็นผลของมันจริงๆ
+</p>
+
+<h2>5 · โค้ดทั้งหมดต้องอยู่ใน Program.cs เหรอ? — ไม่จำเป็น</h2>
+<p>
+  Minimal API ไม่ผูกกับ <code>Program.cs</code> — นิยมแยกเป็นไฟล์คลาส static แล้วเรียกนัดเดียว:
+</p>
+
+<pre><code><span class="cm">// Program.cs — ครึ่งหลัง "ต่อท่อ" เหมือนเดิมทุกประการ เพิ่มแค่บรรทัดเดียว</span>
+app.UseHttpsRedirection();
+TodoItemsEndpoints.MapTodoItems(app);   <span class="cm">// &lt;-- แทนที่ app.MapControllers();</span>
+app.Run();</code></pre>
+
+<pre><code><span class="cm">// Endpoints/TodoItemsEndpoints.cs — รวมทุก endpoint ของเรื่องนี้ไว้ไฟล์เดียว</span>
+public static class TodoItemsEndpoints
+{
+    public static void MapTodoItems(this WebApplication app)
+    {
+        var group = app.MapGroup("/api/todoitems");      <span class="cm">// เส้นทางฐาน = [Route("api/[controller]")]</span>
+
+        group.MapGet("/", GetTodoItems);                 <span class="cm">// [HttpGet]</span>
+        group.MapGet("/{id:int}", GetTodoItem);          <span class="cm">// [HttpGet("{id}")]</span>
+        group.MapPost("/", CreateTodoItem);              <span class="cm">// [HttpPost]</span>
+        group.MapPut("/{id:int}", UpdateTodoItem);       <span class="cm">// [HttpPut("{id}")]</span>
+        group.MapDelete("/{id:int}", DeleteTodoItem);    <span class="cm">// [HttpDelete("{id}")]</span>
+    }
+
+    <span class="cm">// handler = เมธอดธรรมดาก็ได้ — ใช้ async Task&lt;IResult&gt; เหมือนกันทุกตัว</span>
+    private static async Task&lt;IResult&gt; GetTodoItems(TodoDb db) { ... }
+    private static async Task&lt;IResult&gt; GetTodoItem(int id, TodoDb db) { ... }
+    private static async Task&lt;IResult&gt; CreateTodoItem(TodoItemDTO dto, TodoDb db) { ... }
+    private static async Task&lt;IResult&gt; UpdateTodoItem(int id, TodoItemDTO dto, TodoDb db) { ... }
+    private static async Task&lt;IResult&gt; DeleteTodoItem(int id, TodoDb db) { ... }
+}</code></pre>
+
+<p>
+  สังเกตว่า <code>Program.cs</code> ครึ่งแรก (สั่งของ) <strong>ไม่ต้องแก้อะไรเลย</strong> —
+  <code>AddDbContext&lt;TodoDb&gt;</code>, <code>AddOpenApi</code> ยังอยู่ที่เดิม
+  เปลี่ยนเฉพาะครึ่งหลังบรรทัดเดียวเท่านั้น
+</p>
+
+<div class="callout warn">
+  <p><span class="label">ก่อนจะลอง — อย่าเพิ่งใช้เส้นทางเดียวกัน</span></p>
+  <p>
+    ถ้าคุณ register endpoint ที่ <code>/api/todoitems</code> <strong>พร้อมกับ</strong> ที่มี controller อยู่แล้ว
+    สอง endpoint จะแย่งเส้นทางเดียวกัน แล้ว request แรกที่เข้ามาจะโดน
+    <code>AmbiguousMatchException</code> (HTTP 500) ทันที — ผมทดสอบยืนยันแล้ว
+    ดังนั้นตอนทดลอง ให้ใช้ prefix ชั่วคราว เช่น <code>/minimal/todoitems</code> ก่อน
+    แล้วค่อยสลับเมื่อพร้อมแทน controller จริงๆ
+  </p>
+</div>
+
+<div class="callout bad">
+  <p><span class="label">จุดที่ "ไม่เหมือน" จุดเดียวที่ต้องรู้ตอนนี้</span></p>
+  <p>
+    <code>[Required]</code> / <code>[StringLength]</code> ใน <code>TodoItemDTO</code> ของคุณ —
+    ตอนอยู่กับ controller มันทำงานอัตโนมัติเพราะ <code>[ApiController]</code> เป็นคนเปิดให้
+    แต่ใน Minimal API <strong>validation ไม่วิ่งเอง</strong> ถ้าไม่ลงทะเบียน <code>builder.Services.AddValidation();</code>
+    แปลว่าข้อมูลผิดๆ จะวิ่งเข้าไปถึง handler เลย (Microsoft ระบุไว้ชัดใน docs)
+    เรื่องนี้คือ 1 ใน criteria หลักที่ใช้ตัดสินใจ — เราเจาะจริงจังในบทที่ 4
+  </p>
+</div>
+
+<h2>ลองของจริง (15 นาที) — รันสองสไตล์พร้อมกัน</h2>
+<ol class="steps">
+  <li>สร้างไฟล์ใหม่ <code>Endpoints/TodoItemsEndpoints.cs</code> แล้วคัดลอกโครงโค้ดข้อ 5 ไปวาง (เติมเนื้อ handler จากข้อ 1–3)</li>
+  <li>เปลี่ยน prefix ใน <code>MapGroup</code> เป็น <strong><code>/minimal/todoitems</code></strong> ก่อน (กันชนกับ controller เดิม)</li>
+  <li>เพิ่ม <code>TodoItemsEndpoints.MapTodoItems(app);</code> ใน <code>Program.cs</code> ก่อน <code>app.Run()</code> แล้ว <code>dotnet run</code></li>
+  <li>ยิงทั้งสองเส้นทางใน <code>TodoApiV2.http</code> แล้วเทียบ JSON:
+<pre><code>GET http://localhost:5018/api/todoitems        <span class="cm"># ฝั่ง controller</span>
+GET http://localhost:5018/minimal/todoitems    <span class="cm"># ฝั่ง minimal API</span></code></pre>
+    ต้องได้ผลลัพธ์ <strong>เหมือนกันเป๊ะ</strong> ทุก field</li>
+  <li>เมื่อมั่นใจ ค่อยเปลี่ยน <code>MapGroup</code> เป็น <code>/api/todoitems</code> แล้ว<strong>คอมเมนต์</strong> <code>app.MapControllers();</code> ออก — ตอนนี้ Minimal API รับช่วงแทน controller เต็มตัว (ลบไฟล์ controller เก็บไว้ก่อน อย่าเพิ่งทิ้ง)</li>
+</ol>
+
+<div class="quiz" data-best-key="lesson-3-quiz">
+  <p class="quiz-score"></p>
+
+  <div class="q">
+    <p class="prompt">1 · ใน Minimal API อะไรแทนที่ constructor ที่รับ <code>TodoDb context</code>?</p>
+    <div class="opts">
+      <button class="opt" data-correct>parameter ของ handler ที่ DI container เติมให้เอง</button>
+      <button class="opt">การเขียน new TodoDb() ไว้บรรทัดแรกของ handler</button>
+      <button class="opt">ตัวแปร static ที่ทุก handler ใช้ร่วมกัน</button>
+      <button class="opt">การอ่านจาก database ซ้ำทุกครั้งที่เรียกใช้</button>
+    </div>
+    <p class="feedback" hidden>AddDbContext&lt;TodoDb&gt;() ใน Program.cs ลงทะเบียน TodoDb ไว้แล้ว พอ handler รับ parameter เป็นชนิด TodoDb DI ก็ยัดใส่ให้ทันที — กลไกเดียวกับ constructor injection ในบทที่ 1 เปลี่ยนแค่ "ตำแหน่งที่รับของ" จาก constructor มาเป็น parameter</p>
+  </div>
+
+  <div class="q">
+    <p class="prompt">2 · <code>TypedResults.Created(...)</code> ต่างจาก <code>TypedResults.Ok(...)</code> อย่างไร?</p>
+    <div class="opts">
+      <button class="opt">เหมือนกันทุกประการ เปลี่ยนได้ตามใจชอบ</button>
+      <button class="opt">Created ใช้กับ POST ส่วน Ok ใช้กับ GET เท่านั้น</button>
+      <button class="opt" data-correct>Created ตอบ 201 + header Location ส่วน Ok ตอบ 200</button>
+      <button class="opt">Created บันทึกลง database เพิ่มก่อนส่งกลับ</button>
+    </div>
+    <p class="feedback" hidden>Created = 201 Created พร้อม header Location ชี้ไปที่ของที่เพิ่งสร้าง (มาตรฐาน HTTP สำหรับ "สร้างของใหม่สำเร็จ") ส่วน Ok = 200 ธรรมดา ไม่มี Location — controller ของคุณก็ใช้ CreatedAtAction ซึ่งให้ผล 201 + Location เหมือนกัน</p>
+  </div>
+
+  <div class="q">
+    <p class="prompt">3 · <code>group.MapPost("/", (TodoItemDTO dto, ...) =&gt; ...)</code> — parameter <code>dto</code> ถูกเติมมาจากไหน?</p>
+    <div class="opts">
+      <button class="opt">จาก query string ของ URL อัตโนมัติ</button>
+      <button class="opt">จาก DI container เพราะเป็นชนิด class</button>
+      <button class="opt">จาก header ชื่อ Content-Type ของ request</button>
+      <button class="opt" data-correct>จาก body ของ request (JSON) เพราะเป็น POST</button>
+    </div>
+    <p class="feedback" hidden>POST/PUT อ่าน body (JSON) ให้อัตโนมัติสำหรับ complex type ส่วน GET/HEAD/OPTIONS/DELETE ไม่อ่าน body ให้เลย และถ้าชนิดนี้ลงทะเบียนใน DI จะถูกดึงจาก container ด้วย — ในกรณีนี้ TodoItemDTO ไม่ได้ลงทะเบียน จึงมาจากร่าง JSON ของ request</p>
+  </div>
+
+  <div class="q">
+    <p class="prompt">4 · ถ้า register endpoint ที่ <code>/api/todoitems</code> ทั้งที่ controller เดิมก็ใช้เส้นทางนี้อยู่ จะเกิดอะไร?</p>
+    <div class="opts">
+      <button class="opt">ระบบเลือกอันที่เขียนหลังสุดให้ทำงาน</button>
+      <button class="opt" data-correct>request แรกที่เข้ามาได้ 500 AmbiguousMatchException</button>
+      <button class="opt">สองอันทำงานพร้อมกันและส่งผลลัพธ์ซ้อนกัน</button>
+      <button class="opt">ไม่มีอะไรเกิดขึ้น ใช้ได้ตามปกติทั้งคู่</button>
+    </div>
+    <p class="feedback" hidden>routing เจอสอง endpoint ที่แม่นยำเท่ากัน แล้วตัดสินไม่ได้ว่าใครควรรับ — จึงโยน AmbiguousMatchException ทันที (ผมทดสอบกับ .NET 10 แล้ว ได้ 500) วิธีปลอดภัยคือใช้ prefix คนละอันตอนทดลอง หรือปิดอันใดอันหนึ่งไปก่อน</p>
+  </div>
+
+  <div class="q">
+    <p class="prompt">5 · ทำไม <code>[Required]</code> ใน TodoItemDTO อาจ "ไม่ทำงาน" เมื่อใช้ Minimal API?</p>
+    <div class="opts">
+      <button class="opt">Minimal API ลบ attribute ทิ้งตอน compile</button>
+      <button class="opt">attribute ใช้ได้กับ controller เท่านั้นตามภาษา</button>
+      <button class="opt" data-correct>ต้องลงทะเบียน AddValidation() ไม่งั้นไม่วิ่งเอง</button>
+      <button class="opt">ใช้ได้ แต่ตอบ 200 ทั้งที่ข้อมูลผิด</button>
+    </div>
+    <p class="feedback" hidden>ฝั่ง controller นั้น [ApiController] เป็นคนเปิด validation ให้อัตโนมัติ แต่ฝั่ง Minimal API ต้องเรียก builder.Services.AddValidation(); ใน Program.cs — ถ้าไม่เรียก Microsoft ระบุชัดว่า "no automatic validation runs" คือข้อมูลผิดจะวิ่งเข้า handler เลย เรื่องนี้คือหนึ่งใน criteria หลักของบทที่ 4</p>
+  </div>
+
+  <div class="q">
+    <p class="prompt">6 · ข้อใดกล่าวถูกต้องเกี่ยวกับสิ่งที่ "ไม่เปลี่ยนเลย" ระหว่างสองสไตล์?</p>
+    <div class="opts">
+      <button class="opt">middleware pipeline และ Kestrel เปลี่ยนเป็นคนละตัว</button>
+      <button class="opt">ต้องย้ายข้อมูลไปฐานข้อมูลใหม่ด้วย</button>
+      <button class="opt">ทุกอย่างเปลี่ยน เพราะสองสไตล์เป็นคนละ framework</button>
+      <button class="opt" data-correct>DI, EF Core, DTO และ pipeline ยังเป็นของเดิมทั้งหมด</button>
+    </div>
+    <p class="feedback" hidden>สองสไตล์นี้อยู่ใน ASP.NET Core ตัวเดียวกัน — Program.cs ครึ่งแรกไม่ต้องแก้เลย AddDbContext, AddOpenApi, EF Core query, TodoItemDTO, middleware pipeline ทุกอย่างเป็นของเดิม สิ่งที่เปลี่ยนมีแค่ "เปลือกที่รับ request": attributes + คลาส กลายเป็น Map... + route handler</p>
+  </div>
+</div>
+
+<h2>สรุป</h2>
+<ul>
+  <li><code>[Route]</code> + <code>[HttpGet]</code> + คลาส → <strong><code>MapGroup</code> + <code>Map{Verb}</code></strong> + route handler</li>
+  <li>constructor ที่รับ <code>TodoDb</code> → <strong>parameter ที่ DI เติมให้เอง</strong></li>
+  <li><code>Ok/NotFound/BadRequest/NoContent</code> → <code>TypedResults.*</code> ตัวเดียวกันทุกสถานะ</li>
+  <li><code>CreatedAtAction</code> → <code>TypedResults.Created(path, ...)</code> (201 + Location)</li>
+  <li>ของที่ไม่เปลี่ยน: <strong>DI, EF Core, DTO, pipeline, Kestrel</strong> — เปลี่ยนแค่เปลือกรับ request</li>
+  <li>จุดที่ต่างจริงๆ ตอนนี้คือ <strong>validation ไม่วิ่งเอง</strong> ถ้าไม่ <code>AddValidation()</code></li>
+</ul>
+
+<h2>อ่านต่อ (แหล่งข้อมูลหลัก)</h2>
+<p>
+  <a href="https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis?view=aspnetcore-10.0">
+  <strong>Minimal APIs quick reference — Microsoft Learn (.NET 10)</strong></a><br>
+  <span style="color:var(--muted)">หน้าอ้างอิงหลักของบทนี้ — routing, parameter binding, ค่า return, route group,
+  และหัวข้อ validation ที่ผมอ้างถึง ทุกอย่างอยู่ในหน้านี้หน้าเดียว</span>
+</p>
+<p>อ้างอิงในบทนี้:
+  <a href="https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis/parameter-binding?view=aspnetcore-10.0">Parameter binding</a> ·
+  <a href="https://learn.microsoft.com/en-us/aspnet/core/tutorials/min-web-api?view=aspnetcore-10.0">Tutorial: Create a Minimal API</a> ·
+  <a href="https://learn.microsoft.com/en-us/aspnet/core/fundamentals/validation?view=aspnetcore-10.0">Validation in ASP.NET Core</a>
+  (Microsoft Learn — ตรวจสอบแล้ว 2026-10-25)
+</p>
+
+<h2>มีคำถามไหม?</h2>
+<p>
+  สงสัยตรงไหนถามได้เลย เช่น <em>"ถ้าลบ MapControllers ออกแล้ว OpenAPI ยังทำงานไหม?"</em>
+  หรือ <em>"handler กับ lambda ต่างกันยังไง — ควรเขียนแบบไหน?"</em>
+  ถ้าข้อไหนใน quiz ตอบผิด ลองเล่าให้ฟังดูว่างงตรงไหน ผมจะปรับบทถัดไปให้
+</p>
+
+<div class="lesson-footer">
+  <p>
+    ทบทวนแบบอัดแน่น: <a href="../reference/0003-minimal-api-cheatsheet.html">Reference · ตารางแปลง Controller → Minimal API</a> ·
+    <a href="../reference/0000-glossary.html">Glossary</a>
+  </p>
+  <div class="lesson-nav">
+    <a href="./0002-csharp-essentials.html">← บทที่ 2: C# ที่ต้องรู้เพื่ออ่านโค้ดตัวเอง</a>
+    <span class="disabled">บทที่ 4: เทียบสองสไตล์บน criteria จริง →</span>
+  </div>
+</div>
+
+</main>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

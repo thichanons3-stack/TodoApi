@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference · C# Cheat Sheet ของแอปนี้</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main class="doc">
+
+<p class="eyebrow">Reference · ใช้ทวน · พิมพ์ออกมาอ่านได้</p>
+<h1>C# Cheat Sheet — แปลง syntax เป็นภาษาไทย</h1>
+<p>สรุปอัดแน่นจาก <a href="../lessons/0002-csharp-essentials.html">บทที่ 2</a> — ทุกตัวอย่างดึงจากโค้ดจริงในโปรเจกต์ TodoApiV2</p>
+
+<h2>1 · Generics — ปลอกใส่ชนิด</h2>
+<table>
+  <tr><th>ในโค้ด</th><th>อ่านว่า</th></tr>
+  <tr><td><code>DbSet&lt;TodoItem&gt;</code></td><td>"ตาราง TodoItems ในฐานข้อมูล" — ชนิดข้างในบอกว่าเก็บอะไร</td></tr>
+  <tr><td><code>List&lt;TodoItem&gt;</code></td><td>"รายการเก็บ TodoItem เท่านั้น" — ใส่อย่างอื่น compiler ขึ้นแดง</td></tr>
+  <tr><td><code>Task&lt;T&gt;</code></td><td>"ใบรับฝากที่จะมี T มาให้ทีหลัง"</td></tr>
+  <tr><td><code>DbContextOptions&lt;TodoDb&gt;</code></td><td>"ตั้งค่าสำหรับ TodoDb ตัวนี้โดยเฉพาะ"</td></tr>
+</table>
+
+<h2>2 · async / await / Task — รอแบบไม่บล็อก</h2>
+<pre><code>public async Task&lt;ActionResult&lt;TodoItemDTO&gt;&gt; GetTodoItem(int id)   <span class="cm">← "รอทีหลัง คืนใบรับฝาก"</span>
+{
+    var todo = await _context.TodoItems.FindAsync(id);              <span class="cm">← "รอตรงนี้ แต่เธรดว่างไปทำอื่นได้"</span>
+    ...
+}</code></pre>
+<ul>
+  <li><code>async</code> = เปิดใช้ <code>await</code> ได้ในเมธอดนี้ · ไม่มี <code>async</code> = ใช้ <code>await</code> ไม่ได้</li>
+  <li><code>Task</code> = ใบรับฝากไม่มีค่า · <code>Task&lt;T&gt;</code> = ใบรับฝากที่สัญญาว่าจะมี T</li>
+  <li><strong>ลืม await = bug คลาสสิก</strong> — โค้ดจะรีบวิ่งต่อทั้งที่ผลยังไม่มา</li>
+  <li>ตาม convention: เมธอด async ควรลงท้ายด้วย <code>Async</code> (เช่น <code>ToListAsync</code>)</li>
+</ul>
+
+<h2>3 · Attributes — ป้ายที่ framework อ่าน</h2>
+<table>
+  <tr><th>ป้าย</th><th>ใครอ่าน</th><th>อ่านเมื่อไร</th></tr>
+  <tr><td><code>[ApiController]</code></td><td>MVC</td><td>ตอนเริ่ม — เปิด model binding/validation อัตโนมัติ</td></tr>
+  <tr><td><code>[Route("api/[controller]")]</code></td><td>Routing</td><td>ตอนจับคู่ URL (บทที่ 1)</td></tr>
+  <tr><td><code>[HttpGet("{id}")]</code></td><td>Routing</td><td>ตอนจับคู่ URL + method</td></tr>
+  <tr><td><code>[Required] [StringLength(100)]</code></td><td>Model validation</td><td>ตอนรับ body เข้ามา — ไม่ผ่าน = ตอบ 400 ให้เอง</td></tr>
+</table>
+
+<h2>4 · Constructor + readonly</h2>
+<pre><code><span class="hl">private readonly TodoDb _context;</span>         <span class="cm">// ตั้งครั้งเดียวตอนสร้าง ห้ามเปลี่ยนทีหลัง</span>
+<span class="hl">public TodoItemsController(TodoDb context)</span> <span class="cm">// ประตูเดียว — DI ยื่น context ใส่ให้ (ทุก request ใหม่)</span></code></pre>
+
+<h2>5 · Nullable — เครื่องหมาย ?</h2>
+<pre><code>public string? Title      <span class="cm">// string ที่ยอมรับ null (มาจาก &lt;Nullable&gt;enable&lt;/Nullable&gt; ใน .csproj)</span>
+public DateTime? DueDate  <span class="cm">// DateTime ที่ยอมรับ null</span></code></pre>
+<ul>
+  <li>ใช้ค่าที่ "อาจ null" โดยไม่เช็ค → compiler เตือน → ถ้าฝืนรัน = NullReferenceException</li>
+  <li>Pattern ในโค้ดคุณ: <code>if (x == null) return NotFound(...);</code> เช็คก่อนใช้เสมอ</li>
+</ul>
+
+<h2>6 · Syntax เล็กๆ ที่เหลือ</h2>
+<table>
+  <tr><th>เห็น</th><th>อ่านว่า</th></tr>
+  <tr><td><code>var x = ...</code></td><td>ให้ compiler เดาชนิดจากขวา — ยัง type-safe เต็มร้อย</td></tr>
+  <tr><td><code>{ get; set; }</code></td><td>property ของคลาส อ่าน/เขียนได้</td></tr>
+  <tr><td><code>=&gt; Set&lt;TodoItem&gt;();</code></td><td>expression-bodied member — เมธอดหนึ่งบรรทัดแบบสั้น</td></tr>
+  <tr><td><code>new TodoItemDTO(todo)</code></td><td>เรียก constructor — แปลง entity เป็น DTO (รูปทรงที่จะส่งออก)</td></tr>
+  <tr><td><code>is null</code> / <code>== null</code></td><td>เช็คว่าค่าว่างไหม — controller คุณใช้ทั้งสองแบบ</td></tr>
+</table>
+
+<p class="lesson-footer">กลับไปที่ <a href="../lessons/0002-csharp-essentials.html">บทที่ 2</a> ·
+<a href="./0001-http-request-lifecycle.html">Reference: วงจร HTTP Request</a> ·
+<a href="./0000-glossary.html">Glossary</a></p>
+
+</main>
+</body>
+</html>
