@@ -1,0 +1,24 @@
+# Build & Output
+bin/
+obj/
+
+# User-specific / IDE
+.vs/
+./vscode
+*.user
+*suo
+
+# OS
+.DS_Store
+Thumbs.db
+
+#Databases & Logs
+*.db
+*.sqlite
+*.log
+
+# Sensitive Configs
+.env
+
+.idea/
+todos.db
